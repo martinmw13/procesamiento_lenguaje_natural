@@ -1,0 +1,1966 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clase 6 | Encoder-Decoder y Traductor Seq2Seq</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172026;
+      --muted: #5f6b76;
+      --line: #d9e0e7;
+      --paper: #f7f9fb;
+      --panel: #ffffff;
+      --blue: #22577a;
+      --teal: #14746f;
+      --green: #2d6a4f;
+      --red: #9b2c2c;
+      --amber: #9a6700;
+      --code: #101820;
+      --code-text: #e8f0f2;
+      --chip: #eef4f8;
+      --shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: var(--paper);
+      line-height: 1.6;
+    }
+
+    a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    aside {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+      padding: 24px 20px;
+      background: #ffffff;
+      border-right: 1px solid var(--line);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .brand img {
+      width: 54px;
+      height: 54px;
+      object-fit: contain;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 4px;
+    }
+
+    .brand strong {
+      display: block;
+      line-height: 1.15;
+      font-size: 0.98rem;
+    }
+
+    .brand span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.82rem;
+      margin-top: 3px;
+    }
+
+    nav a {
+      display: block;
+      padding: 8px 10px;
+      border-radius: 8px;
+      color: #2c3a44;
+      font-size: 0.93rem;
+    }
+
+    nav a:hover {
+      background: var(--chip);
+      text-decoration: none;
+    }
+
+    main {
+      padding: 40px min(6vw, 72px) 72px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+      gap: 28px;
+      align-items: center;
+      max-width: 1180px;
+      margin: 0 auto 32px;
+      padding-bottom: 28px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .eyebrow {
+      color: var(--teal);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.78rem;
+    }
+
+    h1 {
+      margin: 8px 0 12px;
+      font-size: clamp(2rem, 4vw, 4rem);
+      line-height: 1.02;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 52px 0 16px;
+      font-size: clamp(1.55rem, 2.4vw, 2.2rem);
+      line-height: 1.15;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 30px 0 10px;
+      font-size: 1.2rem;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0 0 14px;
+    }
+
+    .lead {
+      color: var(--muted);
+      font-size: 1.08rem;
+      max-width: 78ch;
+    }
+
+    .source {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 18px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 5px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #ffffff;
+      color: #364650;
+      font-size: 0.86rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .concept-map {
+      background: #ffffff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    .flow {
+      display: grid;
+      gap: 10px;
+    }
+
+    .flow-row {
+      display: grid;
+      grid-template-columns: 1fr 36px 1fr;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .node {
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--blue);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fbfdff;
+      min-height: 70px;
+    }
+
+    .node strong {
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .node small {
+      color: var(--muted);
+    }
+
+    .arrow {
+      text-align: center;
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .content {
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+
+    .section {
+      background: #ffffff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 28px;
+      margin: 24px 0;
+      box-shadow: var(--shadow);
+    }
+
+    .note {
+      border-left: 5px solid var(--teal);
+      background: #eef8f6;
+      padding: 14px 16px;
+      border-radius: 8px;
+      margin: 18px 0;
+    }
+
+    .warning {
+      border-left-color: var(--amber);
+      background: #fff8e8;
+    }
+
+    .danger {
+      border-left-color: var(--red);
+      background: #fff1f1;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .step {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 16px;
+    }
+
+    .step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: var(--blue);
+      color: #ffffff;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+
+    .step h3 {
+      margin-top: 0;
+    }
+
+    .math {
+      display: grid;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfdff;
+      padding: 16px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.95rem;
+      overflow-x: auto;
+    }
+
+    pre {
+      margin: 14px 0;
+      padding: 16px;
+      background: var(--code);
+      color: var(--code-text);
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+
+    :not(pre) > code {
+      background: #edf2f7;
+      padding: 0.12em 0.32em;
+      border-radius: 5px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 0.94rem;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      padding: 10px 12px;
+    }
+
+    th {
+      background: #eef4f8;
+      color: #26323a;
+    }
+
+    details {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 12px 14px;
+      margin: 12px 0;
+    }
+
+    summary {
+      cursor: pointer;
+      font-weight: 800;
+      color: var(--blue);
+    }
+
+    .mini-title {
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.75rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .token-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(90px, 1fr));
+      gap: 8px;
+      margin: 12px 0;
+    }
+
+    .token {
+      border: 1px solid var(--line);
+      background: #fbfdff;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      text-align: center;
+    }
+
+    .theory {
+      border: 1px solid #cfe2ff;
+      border-left: 5px solid var(--blue);
+      border-radius: 8px;
+      background: #f2f7ff;
+      padding: 16px;
+      margin: 18px 0;
+    }
+
+    .theory strong {
+      color: var(--blue);
+    }
+
+    .block-diagram {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(120px, 1fr));
+      gap: 10px;
+      align-items: stretch;
+      margin: 18px 0;
+    }
+
+    .block-diagram.compact {
+      grid-template-columns: repeat(3, minmax(120px, 1fr));
+    }
+
+    .block {
+      position: relative;
+      border: 1px solid var(--line);
+      border-top: 5px solid var(--blue);
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 14px;
+      min-height: 110px;
+    }
+
+    .block.teal {
+      border-top-color: var(--teal);
+    }
+
+    .block.green {
+      border-top-color: var(--green);
+    }
+
+    .block.amber {
+      border-top-color: var(--amber);
+    }
+
+    .block.red {
+      border-top-color: var(--red);
+    }
+
+    .block strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .block small {
+      color: var(--muted);
+      display: block;
+    }
+
+    .connector {
+      align-self: center;
+      justify-self: center;
+      color: var(--muted);
+      font-weight: 900;
+      font-size: 1.2rem;
+    }
+
+    .diagram-row {
+      display: grid;
+      grid-template-columns: 110px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      margin: 10px 0;
+    }
+
+    .diagram-label {
+      color: var(--muted);
+      font-weight: 800;
+      font-size: 0.9rem;
+    }
+
+    .sequence {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .cell {
+      min-width: 56px;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+      text-align: center;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92rem;
+    }
+
+    .cell.input {
+      background: #eef6ff;
+      border-color: #bad7f5;
+    }
+
+    .cell.target {
+      background: #eef8f6;
+      border-color: #b7ddd8;
+    }
+
+    .cell.special {
+      background: #fff7df;
+      border-color: #ead18d;
+      font-weight: 800;
+    }
+
+    .matrix {
+      display: inline-grid;
+      grid-template-columns: repeat(7, 32px);
+      gap: 4px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+      margin: 10px 0;
+      vertical-align: top;
+    }
+
+    .matrix-cell {
+      width: 32px;
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      background: #edf2f7;
+      color: #44515c;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.78rem;
+    }
+
+    .matrix-cell.hot {
+      background: var(--teal);
+      color: #ffffff;
+      font-weight: 800;
+    }
+
+    .shape-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfdff;
+      padding: 14px;
+    }
+
+    .shape-card strong {
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .axis {
+      display: grid;
+      grid-template-columns: 80px minmax(0, 1fr);
+      gap: 8px;
+      margin: 7px 0;
+      font-size: 0.92rem;
+    }
+
+    .axis span:first-child {
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .timeline {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(120px, 1fr));
+      gap: 10px;
+      margin: 18px 0;
+    }
+
+    .time-step {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 12px;
+    }
+
+    .time-step .mini-title {
+      margin-bottom: 6px;
+    }
+
+    .prob-bars {
+      display: grid;
+      gap: 8px;
+      margin: 14px 0;
+    }
+
+    .bar {
+      display: grid;
+      grid-template-columns: 70px minmax(0, 1fr) 46px;
+      gap: 8px;
+      align-items: center;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.88rem;
+    }
+
+    .bar-track {
+      height: 12px;
+      border-radius: 999px;
+      background: #e7edf3;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: var(--teal);
+    }
+
+    .split-diagram {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin: 18px 0;
+    }
+
+    .panel-lite {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 16px;
+    }
+
+    .checkpoint {
+      display: grid;
+      gap: 10px;
+      margin: 16px 0 4px;
+    }
+
+    .check {
+      display: grid;
+      grid-template-columns: 26px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+    }
+
+    .box {
+      width: 22px;
+      height: 22px;
+      border: 2px solid var(--teal);
+      border-radius: 6px;
+      margin-top: 2px;
+    }
+
+    .footer {
+      max-width: 1180px;
+      margin: 40px auto 0;
+      padding-top: 24px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 980px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      aside {
+        position: static;
+        height: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      nav {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 4px;
+      }
+
+      main {
+        padding: 28px 18px 56px;
+      }
+
+      .hero,
+      .grid-2,
+      .grid-3 {
+        grid-template-columns: 1fr;
+      }
+
+      .token-grid {
+        grid-template-columns: repeat(2, minmax(90px, 1fr));
+      }
+
+      .block-diagram,
+      .block-diagram.compact,
+      .timeline,
+      .split-diagram {
+        grid-template-columns: 1fr;
+      }
+
+      .diagram-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 560px) {
+      nav {
+        grid-template-columns: 1fr;
+      }
+
+      .section {
+        padding: 18px;
+      }
+
+      .flow-row {
+        grid-template-columns: 1fr;
+      }
+
+      .arrow {
+        transform: rotate(90deg);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <div class="brand">
+        <img src="../logoFIUBA.jpg" alt="Logo FIUBA">
+        <div>
+          <strong>Clase 6</strong>
+          <span>Seq2Seq paso a paso</span>
+        </div>
+      </div>
+      <nav aria-label="Indice">
+        <a href="#idea">1. Idea central</a>
+        <a href="#conceptos">2. Conceptos clave</a>
+        <a href="#notebook-encoder">3. Encoder_Decoder.ipynb</a>
+        <a href="#datos-numericos">3.1 Datos sinteticos</a>
+        <a href="#tokenizacion-numerica">3.2 Tokenizacion</a>
+        <a href="#teacher-forcing">3.3 Teacher forcing</a>
+        <a href="#arquitectura-numerica">3.4 Arquitectura</a>
+        <a href="#inferencia-numerica">3.5 Inferencia</a>
+        <a href="#notebook-traductor">4. Traductor.ipynb</a>
+        <a href="#datos-traduccion">4.1 Dataset</a>
+        <a href="#tokenizacion-texto">4.2 Texto a tensores</a>
+        <a href="#embeddings">4.3 Embeddings</a>
+        <a href="#modelo-traductor">4.4 Modelo Seq2Seq</a>
+        <a href="#inferencia-traductor">4.5 Traduccion greedy</a>
+        <a href="#comparacion">5. Comparacion</a>
+        <a href="#errores">6. Errores frecuentes</a>
+        <a href="#checklist">7. Checklist</a>
+      </nav>
+    </aside>
+
+    <main>
+      <header class="hero" id="idea">
+        <div>
+          <div class="eyebrow">Procesamiento de lenguaje natural</div>
+          <h1>Encoder-Decoder y traductor Seq2Seq</h1>
+          <p class="lead">
+            Guia didactica basada en <code>Clase 6/Código/Encoder_Decoder.ipynb</code>
+            y <code>Clase 6/Código/Traductor.ipynb</code>. Primero se aprende la mecanica
+            con una secuencia numerica simple. Luego se aplica la misma arquitectura para
+            traducir frases de ingles a español.
+          </p>
+          <div class="source">
+            <span class="pill">Notebook 1: numeros</span>
+            <span class="pill">Notebook 2: traduccion EN -> ES</span>
+            <span class="pill">Keras + TensorFlow</span>
+            <span class="pill">LSTM Seq2Seq</span>
+          </div>
+        </div>
+
+        <div class="concept-map" aria-label="Mapa conceptual encoder decoder">
+          <div class="mini-title">Mapa mental</div>
+          <div class="flow">
+            <div class="flow-row">
+              <div class="node">
+                <strong>Entrada</strong>
+                <small>Numeros o palabras tokenizadas</small>
+              </div>
+              <div class="arrow">-&gt;</div>
+              <div class="node" style="border-left-color: var(--teal);">
+                <strong>Encoder</strong>
+                <small>Resume la secuencia en estados h y c</small>
+              </div>
+            </div>
+            <div class="flow-row">
+              <div class="node" style="border-left-color: var(--green);">
+                <strong>Contexto</strong>
+                <small>Estados finales de la LSTM</small>
+              </div>
+              <div class="arrow">-&gt;</div>
+              <div class="node" style="border-left-color: var(--amber);">
+                <strong>Decoder</strong>
+                <small>Genera la salida token por token</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="content">
+        <section class="section" id="conceptos">
+          <h2>1. Conceptos clave antes de mirar codigo</h2>
+          <div class="grid-3">
+            <div class="step">
+              <div class="step-num">1</div>
+              <h3>Encoder</h3>
+              <p>
+                Lee toda la secuencia de entrada. En una LSTM, su resumen queda en dos
+                vectores: <code>state_h</code> y <code>state_c</code>. Esos vectores son
+                el "contexto" que se pasa al decoder.
+              </p>
+            </div>
+            <div class="step">
+              <div class="step-num">2</div>
+              <h3>Decoder</h3>
+              <p>
+                Produce la secuencia de salida. Durante entrenamiento recibe la salida
+                correcta corrida un paso. Durante inferencia recibe lo que el propio
+                modelo predijo en el paso anterior.
+              </p>
+            </div>
+            <div class="step">
+              <div class="step-num">3</div>
+              <h3>Tokens especiales</h3>
+              <p>
+                <code>&lt;sos&gt;</code> marca el inicio de la salida y
+                <code>&lt;eos&gt;</code> marca el final. En el notebook numerico solo se
+                usa <code>&lt;sos&gt;</code> porque la salida siempre tiene longitud 3.
+              </p>
+            </div>
+          </div>
+
+          <div class="note">
+            <strong>La idea que conecta todo:</strong> entrenamos el modelo viendo la
+            respuesta correcta completa, pero al usarlo en produccion lo hacemos generar
+            un token por vez. Por eso se construyen modelos separados para entrenamiento
+            e inferencia.
+          </div>
+
+          <div class="theory">
+            <strong>Teoria: que problema resuelve Seq2Seq.</strong>
+            Un modelo Seq2Seq transforma una secuencia en otra secuencia. La entrada y
+            la salida no tienen por que tener la misma longitud: una frase en ingles
+            puede traducirse a una frase mas corta o mas larga en español. El encoder
+            convierte la entrada en un estado latente; el decoder usa ese estado para
+            generar la salida ordenada.
+          </div>
+
+          <div class="block-diagram">
+            <div class="block">
+              <strong>Secuencia fuente</strong>
+              <small><code>x1, x2, x3, ...</code></small>
+              <small>Lo que se quiere leer.</small>
+            </div>
+            <div class="connector">-&gt;</div>
+            <div class="block teal">
+              <strong>Encoder LSTM</strong>
+              <small>Procesa paso a paso.</small>
+              <small>Conserva memoria temporal.</small>
+            </div>
+            <div class="connector">-&gt;</div>
+            <div class="block green">
+              <strong>Estados h, c</strong>
+              <small>Resumen aprendido.</small>
+              <small>Condicion inicial del decoder.</small>
+            </div>
+          </div>
+
+          <div class="block-diagram compact">
+            <div class="block amber">
+              <strong>Decoder LSTM</strong>
+              <small>Recibe <code>&lt;sos&gt;</code> al inicio.</small>
+            </div>
+            <div class="connector">-&gt;</div>
+            <div class="block red">
+              <strong>Secuencia destino</strong>
+              <small><code>y1, y2, y3, ...</code></small>
+              <small>Un token por paso.</small>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="notebook-encoder">
+          <h2>2. Notebook: Encoder_Decoder.ipynb</h2>
+          <p>
+            Este notebook usa un problema artificial para que la arquitectura sea
+            transparente: dada una secuencia de tres numeros, el modelo debe devolver
+            los tres numeros siguientes desplazados por 15.
+          </p>
+
+          <div class="math">
+            <span>Entrada: [x, x + 5, x + 10]</span>
+            <span>Salida:  [x + 15, x + 20, x + 25]</span>
+            <span>Ejemplo:  [5, 10, 15] -> [20, 25, 30]</span>
+          </div>
+
+          <div class="theory">
+            <strong>Por que empezar con numeros.</strong>
+            La traduccion tiene muchas fuentes de complejidad: vocabularios grandes,
+            palabras raras, puntuacion, longitudes variables y ambiguedad semantica.
+            Este ejercicio elimina todo eso. Si el modelo aprende a mapear
+            <code>[5, 10, 15]</code> a <code>[20, 25, 30]</code>, podemos observar la
+            mecanica pura del encoder-decoder sin distraernos con lenguaje natural.
+          </div>
+
+          <div class="diagram-row">
+            <div class="diagram-label">Entrada</div>
+            <div class="sequence">
+              <span class="cell input">5</span>
+              <span class="cell input">10</span>
+              <span class="cell input">15</span>
+              <span class="connector">-&gt;</span>
+              <span class="cell target">20</span>
+              <span class="cell target">25</span>
+              <span class="cell target">30</span>
+            </div>
+          </div>
+
+          <div class="block-diagram">
+            <div class="block">
+              <strong>Lista plana</strong>
+              <small><code>5, 10, 15, ...</code></small>
+            </div>
+            <div class="connector">-&gt;</div>
+            <div class="block teal">
+              <strong>Ventanas de 3</strong>
+              <small><code>[5, 10, 15]</code></small>
+            </div>
+            <div class="connector">-&gt;</div>
+            <div class="block green">
+              <strong>Secuencia objetivo</strong>
+              <small><code>[20, 25, 30]</code></small>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="datos-numericos">
+          <h2>2.1 Generacion de datos sinteticos</h2>
+          <p>
+            Se crea una lista de multiplos de 5 para la entrada y otra lista desplazada
+            en 15 unidades para la salida. Luego ambas se reorganizan en secuencias de
+            longitud 3.
+          </p>
+
+          <div class="theory">
+            <strong>Teoria: dimension temporal.</strong>
+            Una LSTM no recibe una fila aislada, recibe una secuencia ordenada. Por eso
+            el tensor tiene una dimension para ejemplos, otra para tiempo y otra para
+            features. En este caso cada paso temporal contiene una sola feature: el
+            numero.
+          </div>
+
+          <div class="grid-3">
+            <div class="shape-card">
+              <strong><code>batch</code></strong>
+              <div class="axis"><span>Que es</span><span>Cantidad de ejemplos.</span></div>
+              <div class="axis"><span>Aqui</span><span>20 secuencias.</span></div>
+            </div>
+            <div class="shape-card">
+              <strong><code>timesteps</code></strong>
+              <div class="axis"><span>Que es</span><span>Orden dentro de la secuencia.</span></div>
+              <div class="axis"><span>Aqui</span><span>3 pasos: 5, 10, 15.</span></div>
+            </div>
+            <div class="shape-card">
+              <strong><code>features</code></strong>
+              <div class="axis"><span>Que es</span><span>Variables por paso temporal.</span></div>
+              <div class="axis"><span>Aqui</span><span>1 numero por paso.</span></div>
+            </div>
+          </div>
+
+          <pre><code class="language-python">X_flat = list(range(5, 301, 5))      # [5, 10, 15, ..., 300]
+y_flat = [x + 15 for x in X_flat]   # [20, 25, 30, ..., 315]
+
+X = np.array(X_flat).reshape(-1, 3, 1)
+y = np.array(y_flat).reshape(-1, 3, 1)</code></pre>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Objeto</th>
+                <th>Forma esperada</th>
+                <th>Significado</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>X</code></td>
+                <td><code>(20, 3, 1)</code></td>
+                <td>20 ejemplos, 3 pasos temporales, 1 valor por paso.</td>
+              </tr>
+              <tr>
+                <td><code>y</code></td>
+                <td><code>(20, 3, 1)</code></td>
+                <td>La secuencia objetivo correspondiente a cada entrada.</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="section" id="tokenizacion-numerica">
+          <h2>2.2 Tokenizacion numerica</h2>
+          <p>
+            Aunque trabajamos con numeros, el modelo no predice valores continuos.
+            Predice categorias. Por eso cada numero posible se convierte en un indice,
+            y despues ese indice se representa con one-hot encoding.
+          </p>
+
+          <div class="note warning">
+            <strong>Punto critico del notebook:</strong> el vocabulario debe cubrir los
+            valores de entrada y de salida. Si solo se tokeniza el train, validacion o
+            test pueden contener valores desconocidos y el <code>val_loss</code> puede
+            explotar.
+          </div>
+
+          <pre><code class="language-python">all_values = np.unique(np.concatenate([X.ravel(), y.ravel()]))
+labels = [0] + list(all_values)  # 0 se reserva para &lt;sos&gt;
+
+label_encoder = preprocessing.LabelEncoder()
+label_encoder.fit(labels)
+
+VOCAB_SIZE = len(label_encoder.classes_)</code></pre>
+
+          <div class="token-grid" aria-label="Ejemplo de tokens">
+            <div class="token">&lt;sos&gt; = 0</div>
+            <div class="token">5</div>
+            <div class="token">10</div>
+            <div class="token">15</div>
+            <div class="token">...</div>
+            <div class="token">300</div>
+            <div class="token">305</div>
+            <div class="token">310</div>
+            <div class="token">315</div>
+            <div class="token">VOCAB_SIZE</div>
+          </div>
+
+          <div class="theory">
+            <strong>Teoria: clasificacion por token.</strong>
+            El modelo no aprende a sumar 15 como una formula algebraica. Aprende a
+            elegir, para cada posicion de salida, una clase dentro del vocabulario. Por
+            eso la capa final usa <code>softmax</code>: produce una probabilidad para
+            cada token posible.
+          </div>
+
+          <h3>Visualizacion de one-hot</h3>
+          <p>
+            Si el vocabulario fuese <code>[&lt;sos&gt;, 5, 10, 15, 20, 25, 30]</code>,
+            cada token se representaria con un vector donde solo una posicion vale 1.
+          </p>
+          <div class="grid-2">
+            <div>
+              <div class="diagram-label">Token <code>20</code></div>
+              <div class="matrix" aria-label="Vector one hot de 20">
+                <span class="matrix-cell">0</span>
+                <span class="matrix-cell">0</span>
+                <span class="matrix-cell">0</span>
+                <span class="matrix-cell">0</span>
+                <span class="matrix-cell hot">1</span>
+                <span class="matrix-cell">0</span>
+                <span class="matrix-cell">0</span>
+              </div>
+            </div>
+            <div>
+              <div class="diagram-label">Target <code>[20, 25, 30]</code></div>
+              <div class="matrix" aria-label="Matriz one hot de salida">
+                <span class="matrix-cell">0</span><span class="matrix-cell">0</span><span class="matrix-cell">0</span><span class="matrix-cell">0</span><span class="matrix-cell hot">1</span><span class="matrix-cell">0</span><span class="matrix-cell">0</span>
+                <span class="matrix-cell">0</span><span class="matrix-cell">0</span><span class="matrix-cell">0</span><span class="matrix-cell">0</span><span class="matrix-cell">0</span><span class="matrix-cell hot">1</span><span class="matrix-cell">0</span>
+                <span class="matrix-cell">0</span><span class="matrix-cell">0</span><span class="matrix-cell">0</span><span class="matrix-cell">0</span><span class="matrix-cell">0</span><span class="matrix-cell">0</span><span class="matrix-cell hot">1</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="teacher-forcing">
+          <h2>2.3 Preparacion del dataset y teacher forcing</h2>
+          <p>
+            El encoder recibe la entrada tokenizada. El decoder recibe la salida correcta
+            desplazada un paso hacia la derecha. Ese procedimiento se llama
+            <strong>teacher forcing</strong>.
+          </p>
+
+          <div class="grid-2">
+            <div>
+              <h3>Para el ejemplo</h3>
+              <div class="math">
+                <span>Entrada real: [5, 10, 15]</span>
+                <span>Salida real:  [20, 25, 30]</span>
+                <span>Decoder in:   [&lt;sos&gt;, 20, 25]</span>
+                <span>Target:       [20, 25, 30]</span>
+              </div>
+            </div>
+            <div>
+              <h3>Intuicion</h3>
+              <p>
+                En el paso 1 el decoder ve <code>&lt;sos&gt;</code> y debe predecir
+                <code>20</code>. En el paso 2 ve <code>20</code> y debe predecir
+                <code>25</code>. En el paso 3 ve <code>25</code> y debe predecir
+                <code>30</code>.
+              </p>
+            </div>
+          </div>
+
+          <div class="theory">
+            <strong>Teoria: por que teacher forcing acelera el aprendizaje.</strong>
+            Si al principio el decoder usara sus propias predicciones, cometeria muchos
+            errores y esos errores se acumularian. Con teacher forcing, durante
+            entrenamiento se le entrega la respuesta correcta del paso anterior. Asi el
+            modelo aprende la relacion local "dado el contexto y el token previo, cual
+            token sigue".
+          </div>
+
+          <h3>Alineacion temporal</h3>
+          <div class="diagram-row">
+            <div class="diagram-label">Decoder in</div>
+            <div class="sequence">
+              <span class="cell special">&lt;sos&gt;</span>
+              <span class="cell target">20</span>
+              <span class="cell target">25</span>
+            </div>
+          </div>
+          <div class="diagram-row">
+            <div class="diagram-label">Target</div>
+            <div class="sequence">
+              <span class="cell target">20</span>
+              <span class="cell target">25</span>
+              <span class="cell target">30</span>
+            </div>
+          </div>
+          <div class="timeline">
+            <div class="time-step">
+              <div class="mini-title">Paso 1</div>
+              <p>Ve <code>&lt;sos&gt;</code> y debe predecir <code>20</code>.</p>
+            </div>
+            <div class="time-step">
+              <div class="mini-title">Paso 2</div>
+              <p>Ve <code>20</code> y debe predecir <code>25</code>.</p>
+            </div>
+            <div class="time-step">
+              <div class="mini-title">Paso 3</div>
+              <p>Ve <code>25</code> y debe predecir <code>30</code>.</p>
+            </div>
+            <div class="time-step">
+              <div class="mini-title">Loss</div>
+              <p>Se compara cada prediccion con su target.</p>
+            </div>
+          </div>
+
+          <pre><code class="language-python">def preparar_dataset(X, Y, label_encoder, vocab_size):
+    X1_list, X2_list, target_list = [], [], []
+
+    for x_seq, y_seq in zip(X, Y):
+        enc_in  = list(label_encoder.transform(x_seq.ravel()))
+        enc_out = list(label_encoder.transform(y_seq.ravel()))
+
+        dec_in = [0] + enc_out[:-1]  # &lt;sos&gt; + salida corrida
+
+        X1_list.append(to_categorical(enc_in,  num_classes=vocab_size))
+        X2_list.append(to_categorical(dec_in,  num_classes=vocab_size))
+        target_list.append(to_categorical(enc_out, num_classes=vocab_size))
+
+    return np.array(X1_list), np.array(X2_list), np.array(target_list)</code></pre>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Tensor</th>
+                <th>Rol</th>
+                <th>Forma conceptual</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>X1</code></td>
+                <td>Entrada del encoder</td>
+                <td><code>(batch, 3, VOCAB_SIZE)</code></td>
+              </tr>
+              <tr>
+                <td><code>X2</code></td>
+                <td>Entrada del decoder</td>
+                <td><code>(batch, 3, VOCAB_SIZE)</code></td>
+              </tr>
+              <tr>
+                <td><code>target</code></td>
+                <td>Salida esperada del decoder</td>
+                <td><code>(batch, 3, VOCAB_SIZE)</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="section" id="arquitectura-numerica">
+          <h2>2.4 Arquitectura Encoder-Decoder</h2>
+          <p>
+            La funcion <code>construir_modelos</code> arma tres modelos. Esto es normal
+            en Seq2Seq clasico con Keras: un modelo se usa para entrenar con toda la
+            secuencia, y dos modelos mas chicos se usan para inferir paso a paso.
+          </p>
+
+          <div class="theory">
+            <strong>Teoria: el cuello de botella del encoder.</strong>
+            En esta arquitectura clasica, toda la informacion de la entrada debe pasar
+            por los estados finales <code>h</code> y <code>c</code>. Ese resumen funciona
+            bien para secuencias cortas, pero puede volverse limitado en frases largas.
+            Esa limitacion motivo luego mecanismos como attention y Transformers.
+          </div>
+
+          <div class="grid-3">
+            <div class="step">
+              <div class="step-num">A</div>
+              <h3><code>model</code></h3>
+              <p>Modelo completo de entrenamiento. Recibe <code>[encoder_input, decoder_input]</code> y aprende a producir <code>target</code>.</p>
+            </div>
+            <div class="step">
+              <div class="step-num">B</div>
+              <h3><code>encoder_model</code></h3>
+              <p>Recibe una secuencia y devuelve los estados <code>h</code> y <code>c</code>.</p>
+            </div>
+            <div class="step">
+              <div class="step-num">C</div>
+              <h3><code>decoder_model</code></h3>
+              <p>Recibe un token y estados previos. Devuelve la distribucion del proximo token y nuevos estados.</p>
+            </div>
+          </div>
+
+          <h3>Entrenamiento: todo en paralelo</h3>
+          <div class="block-diagram">
+            <div class="block">
+              <strong>Encoder input</strong>
+              <small><code>[5, 10, 15]</code></small>
+              <small>Secuencia completa.</small>
+            </div>
+            <div class="connector">-&gt;</div>
+            <div class="block teal">
+              <strong>Encoder LSTM</strong>
+              <small>Devuelve <code>h, c</code>.</small>
+            </div>
+            <div class="connector">-&gt;</div>
+            <div class="block amber">
+              <strong>Decoder LSTM</strong>
+              <small>Recibe <code>[&lt;sos&gt;, 20, 25]</code>.</small>
+            </div>
+          </div>
+          <div class="diagram-row">
+            <div class="diagram-label">Salida</div>
+            <div class="sequence">
+              <span class="cell target">P(20)</span>
+              <span class="cell target">P(25)</span>
+              <span class="cell target">P(30)</span>
+              <span class="connector">vs</span>
+              <span class="cell target">20</span>
+              <span class="cell target">25</span>
+              <span class="cell target">30</span>
+            </div>
+          </div>
+
+          <h3>Inferencia: un paso por vez</h3>
+          <div class="block-diagram">
+            <div class="block">
+              <strong>Encoder input</strong>
+              <small><code>[20, 25, 30]</code></small>
+            </div>
+            <div class="connector">-&gt;</div>
+            <div class="block teal">
+              <strong><code>encoder_model</code></strong>
+              <small>Produce estados iniciales.</small>
+            </div>
+            <div class="connector">-&gt;</div>
+            <div class="block amber">
+              <strong><code>decoder_model</code></strong>
+              <small>Predice <code>35</code>, luego <code>40</code>, luego <code>45</code>.</small>
+            </div>
+          </div>
+
+          <pre><code class="language-python">encoder_input = Input(shape=(None, n_input))
+_, state_h, state_c = LSTM(n_units, return_state=True)(encoder_input)
+encoder_states = [state_h, state_c]
+
+decoder_input = Input(shape=(None, n_output))
+decoder_lstm = LSTM(n_units, return_sequences=True, return_state=True)
+decoder_dense = Dense(n_output, activation='softmax')
+
+dec_out, _, _ = decoder_lstm(decoder_input, initial_state=encoder_states)
+dec_out = decoder_dense(dec_out)
+
+model = Model(inputs=[encoder_input, decoder_input], outputs=dec_out)</code></pre>
+
+          <details>
+            <summary>Por que se usa <code>categorical_crossentropy</code></summary>
+            <p>
+              Porque cada paso temporal es una clasificacion multiclase: el modelo elige
+              uno de los tokens del vocabulario. La salida de la capa densa es
+              <code>softmax</code>, una distribucion de probabilidad sobre todos los
+              tokens posibles.
+            </p>
+          </details>
+        </section>
+
+        <section class="section" id="inferencia-numerica">
+          <h2>2.5 Inferencia numerica</h2>
+          <p>
+            En inferencia ya no conocemos la salida correcta. El decoder arranca con
+            <code>&lt;sos&gt;</code>, predice un token, usa ese token como nueva entrada
+            y repite el proceso.
+          </p>
+
+          <div class="theory">
+            <strong>Teoria: generacion autoregresiva.</strong>
+            Autoregresivo significa que la salida actual depende de las salidas
+            anteriores. En entrenamiento se usa la salida correcta anterior; en
+            inferencia se usa la salida que el modelo acaba de producir. Esta diferencia
+            explica por que pueden aparecer errores acumulados.
+          </div>
+
+          <div class="timeline">
+            <div class="time-step">
+              <div class="mini-title">Inicio</div>
+              <p><code>token = &lt;sos&gt;</code><br><code>states = encoder(x)</code></p>
+            </div>
+            <div class="time-step">
+              <div class="mini-title">Paso 1</div>
+              <p>Decoder predice <code>35</code>. Ese token vuelve como entrada.</p>
+            </div>
+            <div class="time-step">
+              <div class="mini-title">Paso 2</div>
+              <p>Decoder predice <code>40</code>. Se actualizan <code>h, c</code>.</p>
+            </div>
+            <div class="time-step">
+              <div class="mini-title">Paso 3</div>
+              <p>Decoder predice <code>45</code>. Termina porque <code>n_steps=3</code>.</p>
+            </div>
+          </div>
+
+          <h3>Ejemplo de distribucion softmax</h3>
+          <p>
+            El decoder no devuelve directamente "35"; devuelve probabilidades. Luego
+            <code>argmax</code> selecciona el indice mas probable.
+          </p>
+          <div class="prob-bars" aria-label="Probabilidades de tokens">
+            <div class="bar"><span>30</span><span class="bar-track"><span class="bar-fill" style="width: 8%;"></span></span><span>0.08</span></div>
+            <div class="bar"><span>35</span><span class="bar-track"><span class="bar-fill" style="width: 82%;"></span></span><span>0.82</span></div>
+            <div class="bar"><span>40</span><span class="bar-track"><span class="bar-fill" style="width: 7%;"></span></span><span>0.07</span></div>
+            <div class="bar"><span>45</span><span class="bar-track"><span class="bar-fill" style="width: 3%;"></span></span><span>0.03</span></div>
+          </div>
+
+          <pre><code class="language-python">def predecir(x_seq, encoder_model, decoder_model, label_encoder, vocab_size, n_steps=3):
+    states = encoder_model.predict(x_seq, verbose=0)
+    token = to_categorical(0, num_classes=vocab_size).reshape(1, 1, vocab_size)
+
+    output = []
+    for _ in range(n_steps):
+        pred, h, c = decoder_model.predict([token] + states, verbose=0)
+        output.append(pred[0])
+        states = [h, c]
+        token = pred
+
+    return output</code></pre>
+
+          <div class="note">
+            El notebook prueba con <code>[20, 25, 30]</code> y espera
+            <code>[35, 40, 45]</code>. Como la salida siempre tiene tres pasos,
+            <code>n_steps=3</code> alcanza y no hace falta token <code>&lt;eos&gt;</code>.
+          </div>
+        </section>
+
+        <section class="section" id="notebook-traductor">
+          <h2>3. Notebook: Traductor.ipynb</h2>
+          <p>
+            El segundo notebook lleva la misma idea a una tarea real: traducir del ingles
+            al español. Ahora las secuencias son frases, el vocabulario es mucho mas
+            grande y la longitud de salida puede variar.
+          </p>
+
+          <div class="theory">
+            <strong>Teoria: traduccion como transduccion de secuencias.</strong>
+            Traducir no es reemplazar palabra por palabra. El modelo debe aprender orden,
+            contexto y dependencias entre palabras. El encoder interpreta la frase fuente;
+            el decoder genera una frase destino condicionada por esa interpretacion.
+          </div>
+
+          <div class="block-diagram">
+            <div class="block">
+              <strong>Texto EN</strong>
+              <small><code>Where is the train?</code></small>
+            </div>
+            <div class="connector">-&gt;</div>
+            <div class="block teal">
+              <strong>Tokenizacion</strong>
+              <small><code>[34, 7, 2, 91]</code></small>
+            </div>
+            <div class="connector">-&gt;</div>
+            <div class="block green">
+              <strong>Encoder</strong>
+              <small>Embeddings + LSTM.</small>
+            </div>
+          </div>
+          <div class="block-diagram">
+            <div class="block amber">
+              <strong>Decoder</strong>
+              <small><code>&lt;sos&gt;</code> + estados.</small>
+            </div>
+            <div class="connector">-&gt;</div>
+            <div class="block red">
+              <strong>Texto ES</strong>
+              <small><code>donde esta el tren</code></small>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="datos-traduccion">
+          <h2>3.1 Descarga y carga del dataset</h2>
+          <p>
+            Se descarga el dataset <code>spa-eng</code> de TensorFlow. Cada linea contiene
+            una frase en ingles y su traduccion al español separadas por tabulacion.
+            El notebook usa hasta <code>MAX_NUM_SENTENCES = 10000</code> ejemplos.
+          </p>
+
+          <div class="theory">
+            <strong>Teoria: pares supervisados.</strong>
+            El traductor se entrena de forma supervisada: cada ejemplo tiene una entrada
+            y una respuesta esperada. No se le dice explicitamente que palabra inglesa
+            corresponde a que palabra española; aprende esas correspondencias al minimizar
+            el error de prediccion token a token.
+          </div>
+
+          <pre><code class="language-python">if not os.path.exists('spa-eng'):
+    os.system("curl -L -o spa-eng.zip http://storage.googleapis.com/download.tensorflow.org/data/spa-eng.zip")
+    os.system("unzip -q spa-eng.zip")
+
+with open("./spa-eng/spa.txt") as f:
+    lines = f.read().split("\n")[:-1]
+
+MAX_NUM_SENTENCES = 10000
+np.random.seed(40)
+np.random.shuffle(lines)</code></pre>
+
+          <p>
+            Para cada par de frases se crean tres listas:
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Lista</th>
+                <th>Ejemplo conceptual</th>
+                <th>Uso</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>input_sentences</code></td>
+                <td><code>"I am tired."</code></td>
+                <td>Entrada del encoder.</td>
+              </tr>
+              <tr>
+                <td><code>output_sentences</code></td>
+                <td><code>"Estoy cansado. &lt;eos&gt;"</code></td>
+                <td>Target que el decoder debe predecir.</td>
+              </tr>
+              <tr>
+                <td><code>output_sentences_inputs</code></td>
+                <td><code>"&lt;sos&gt; Estoy cansado."</code></td>
+                <td>Entrada del decoder durante entrenamiento.</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>Como queda una fila del dataset</h3>
+          <div class="diagram-row">
+            <div class="diagram-label">Encoder</div>
+            <div class="sequence">
+              <span class="cell input">I</span>
+              <span class="cell input">am</span>
+              <span class="cell input">tired</span>
+            </div>
+          </div>
+          <div class="diagram-row">
+            <div class="diagram-label">Decoder in</div>
+            <div class="sequence">
+              <span class="cell special">&lt;sos&gt;</span>
+              <span class="cell target">Estoy</span>
+              <span class="cell target">cansado</span>
+            </div>
+          </div>
+          <div class="diagram-row">
+            <div class="diagram-label">Target</div>
+            <div class="sequence">
+              <span class="cell target">Estoy</span>
+              <span class="cell target">cansado</span>
+              <span class="cell special">&lt;eos&gt;</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="tokenizacion-texto">
+          <h2>3.2 Tokenizacion y padding</h2>
+          <p>
+            Las palabras se transforman en indices enteros con dos tokenizadores:
+            uno para ingles y otro para español. Luego se aplica padding para que todas
+            las secuencias de un batch tengan la misma longitud.
+          </p>
+
+          <div class="theory">
+            <strong>Teoria: por que se usa padding.</strong>
+            Las redes entrenan en batches, y dentro de un batch todos los tensores deben
+            tener la misma forma. Como las frases tienen longitudes distintas, se rellenan
+            con ceros hasta una longitud fija. El cero suele representar "sin palabra" o
+            padding.
+          </div>
+
+          <pre><code class="language-python">MAX_VOCAB_SIZE = 8000
+
+input_tokenizer = Tokenizer(num_words=MAX_VOCAB_SIZE)
+input_tokenizer.fit_on_texts(input_sentences)
+input_integer_seq = input_tokenizer.texts_to_sequences(input_sentences)
+
+output_tokenizer = Tokenizer(
+    num_words=MAX_VOCAB_SIZE,
+    filters='!"#$%&()*+,-./:;=¿?@[\\]^_`{|}~\t\n'
+)
+output_tokenizer.fit_on_texts(["&lt;sos&gt;", "&lt;eos&gt;"] + output_sentences)
+
+max_input_len = 20
+max_out_len = 22</code></pre>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Tensor</th>
+                <th>Como se obtiene</th>
+                <th>Forma conceptual</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>encoder_input_sequences</code></td>
+                <td>Frase en ingles tokenizada y con padding</td>
+                <td><code>(num_ejemplos, 20)</code></td>
+              </tr>
+              <tr>
+                <td><code>decoder_input_sequences</code></td>
+                <td><code>&lt;sos&gt;</code> + frase española tokenizada</td>
+                <td><code>(num_ejemplos, 22)</code></td>
+              </tr>
+              <tr>
+                <td><code>decoder_output_sequences</code></td>
+                <td>Frase española + <code>&lt;eos&gt;</code></td>
+                <td><code>(num_ejemplos, 22)</code></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="note">
+            En el notebook numerico, las entradas al decoder estaban en one-hot antes
+            de entrar al modelo. En el traductor, las entradas son indices enteros
+            porque pasan por una capa <code>Embedding</code>.
+          </div>
+
+          <h3>Visualizacion: texto a tensor</h3>
+          <div class="diagram-row">
+            <div class="diagram-label">Texto</div>
+            <div class="sequence">
+              <span class="cell input">Where</span>
+              <span class="cell input">is</span>
+              <span class="cell input">the</span>
+              <span class="cell input">train</span>
+            </div>
+          </div>
+          <div class="diagram-row">
+            <div class="diagram-label">Indices</div>
+            <div class="sequence">
+              <span class="cell">34</span>
+              <span class="cell">7</span>
+              <span class="cell">2</span>
+              <span class="cell">91</span>
+            </div>
+          </div>
+          <div class="diagram-row">
+            <div class="diagram-label">Padding</div>
+            <div class="sequence">
+              <span class="cell">0</span>
+              <span class="cell">0</span>
+              <span class="cell">0</span>
+              <span class="cell">34</span>
+              <span class="cell">7</span>
+              <span class="cell">2</span>
+              <span class="cell">91</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="embeddings">
+          <h2>3.3 Dataset eficiente y embeddings GloVe</h2>
+          <p>
+            Para no materializar todos los targets en one-hot desde el principio, el
+            notebook usa <code>tf.data.Dataset</code>. El one-hot del target se crea
+            dentro del pipeline.
+          </p>
+
+          <div class="theory">
+            <strong>Teoria: embeddings versus one-hot.</strong>
+            Un one-hot de 8000 palabras es un vector enorme y casi todo en cero. Un
+            embedding reemplaza cada indice por un vector denso mas chico, por ejemplo
+            de 50 dimensiones. Palabras semanticamente parecidas tienden a tener vectores
+            mas parecidos, lo que ayuda al encoder a arrancar con informacion linguistica.
+          </div>
+
+          <pre><code class="language-python">def make_dataset(enc_seqs, dec_in_seqs, dec_out_seqs, batch_size, num_classes):
+    def encode_one_hot(enc, dec_in, dec_out):
+        y = tf.one_hot(dec_out, depth=num_classes)
+        return (enc, dec_in), y
+
+    ds = tf.data.Dataset.from_generator(...)
+    ds = ds.map(encode_one_hot, num_parallel_calls=tf.data.AUTOTUNE)
+    ds = ds.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    return ds</code></pre>
+
+          <p>
+            El encoder usa embeddings preentrenados GloVe de dimension 50 para las
+            palabras de entrada en ingles. La matriz de embeddings tiene una fila por
+            token del vocabulario de entrada.
+          </p>
+
+          <div class="block-diagram">
+            <div class="block">
+              <strong>Indice</strong>
+              <small><code>34</code></small>
+              <small>Representa una palabra.</small>
+            </div>
+            <div class="connector">-&gt;</div>
+            <div class="block teal">
+              <strong>Matriz GloVe</strong>
+              <small>Busca la fila 34.</small>
+            </div>
+            <div class="connector">-&gt;</div>
+            <div class="block green">
+              <strong>Vector denso</strong>
+              <small><code>[0.12, -0.03, ...]</code></small>
+              <small>50 valores.</small>
+            </div>
+          </div>
+
+          <pre><code class="language-python">embedding_matrix = build_embedding_matrix(
+    word2idx_inputs,
+    glove_embeddings,
+    glove_word2idx,
+    nb_words,
+    EMBED_DIM
+)</code></pre>
+
+          <details>
+            <summary>Que significa que haya embeddings nulos</summary>
+            <p>
+              Un embedding nulo indica que esa palabra del vocabulario del tokenizador
+              no se encontro en GloVe. El notebook la representa con un vector de ceros.
+              Eso no rompe el modelo, pero esa palabra entra con menos informacion
+              semantica inicial.
+            </p>
+          </details>
+        </section>
+
+        <section class="section" id="modelo-traductor">
+          <h2>3.4 Modelo Seq2Seq para traduccion</h2>
+          <p>
+            El encoder toma una secuencia de indices en ingles, la pasa por una capa
+            <code>Embedding</code> con pesos GloVe congelados, aplica dropout y resume
+            la frase con una LSTM.
+          </p>
+
+          <div class="theory">
+            <strong>Teoria: que aprende cada parte.</strong>
+            El embedding convierte simbolos discretos en vectores. La LSTM del encoder
+            aprende a combinar esos vectores segun el orden de la frase. La LSTM del
+            decoder aprende a construir una frase española coherente condicionada por
+            los estados del encoder y por lo que ya genero.
+          </div>
+
+          <div class="split-diagram">
+            <div class="panel-lite">
+              <h3>Encoder</h3>
+              <div class="block-diagram compact">
+                <div class="block">
+                  <strong>Indices EN</strong>
+                  <small><code>(batch, 20)</code></small>
+                </div>
+                <div class="block teal">
+                  <strong>Embedding GloVe</strong>
+                  <small><code>(batch, 20, 50)</code></small>
+                </div>
+                <div class="block green">
+                  <strong>LSTM</strong>
+                  <small>Entrega <code>h, c</code>.</small>
+                </div>
+              </div>
+            </div>
+            <div class="panel-lite">
+              <h3>Decoder</h3>
+              <div class="block-diagram compact">
+                <div class="block amber">
+                  <strong>Indices ES</strong>
+                  <small><code>(batch, 22)</code></small>
+                </div>
+                <div class="block teal">
+                  <strong>Embedding aprendido</strong>
+                  <small><code>(batch, 22, 256)</code></small>
+                </div>
+                <div class="block red">
+                  <strong>Dense softmax</strong>
+                  <small><code>(batch, 22, vocab_es)</code></small>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <pre><code class="language-python">enc_inputs = Input(shape=(max_input_len,), name='encoder_inputs')
+enc_emb_layer = Embedding(
+    input_dim=nb_words,
+    output_dim=embed_dim,
+    input_length=max_input_len,
+    weights=[embedding_matrix],
+    trainable=False,
+    name='encoder_embedding'
+)
+enc_emb = Dropout(0.3)(enc_emb_layer(enc_inputs))
+_, state_h, state_c = LSTM(n_units, return_state=True)(enc_emb)</code></pre>
+
+          <p>
+            El decoder toma indices en español, aprende sus propios embeddings, recibe
+            los estados del encoder y predice una distribucion sobre el vocabulario de
+            salida en cada paso temporal.
+          </p>
+
+          <pre><code class="language-python">dec_inputs = Input(shape=(max_out_len,), name='decoder_inputs')
+dec_emb_layer = Embedding(
+    input_dim=num_words_output,
+    output_dim=n_units,
+    input_length=max_out_len,
+    name='decoder_embedding'
+)
+dec_emb = Dropout(0.3)(dec_emb_layer(dec_inputs))
+
+dec_lstm_layer = LSTM(n_units, return_sequences=True, return_state=True)
+dec_out, _, _ = dec_lstm_layer(dec_emb, initial_state=encoder_states)
+dec_out = Dense(num_words_output, activation='softmax')(dec_out)</code></pre>
+
+          <div class="grid-2">
+            <div class="step">
+              <h3>Callbacks</h3>
+              <p>
+                <code>ReduceLROnPlateau</code> baja el learning rate si la validacion
+                se estanca. <code>EarlyStopping</code> corta el entrenamiento y restaura
+                los mejores pesos.
+              </p>
+            </div>
+            <div class="step">
+              <h3>Compilacion</h3>
+              <p>
+                Se usa <code>categorical_crossentropy</code> porque el target esta en
+                one-hot. La metrica <code>accuracy</code> mide coincidencia token a token.
+              </p>
+            </div>
+          </div>
+
+          <div class="note">
+            <strong>Lectura de formas:</strong> el modelo no devuelve una frase como
+            texto. Devuelve, para cada posicion de salida, una distribucion sobre el
+            vocabulario español. Convertir eso a palabras ocurre despues, durante la
+            inferencia.
+          </div>
+        </section>
+
+        <section class="section" id="inferencia-traductor">
+          <h2>3.5 Inferencia greedy para traducir</h2>
+          <p>
+            Como en el notebook numerico, se separan encoder y decoder para inferencia.
+            La diferencia es que ahora el decoder se detiene cuando predice
+            <code>&lt;eos&gt;</code> o cuando llega a <code>max_out_len</code>.
+          </p>
+
+          <div class="theory">
+            <strong>Teoria: greedy decoding.</strong>
+            En cada paso, el decoder produce probabilidades para todas las palabras del
+            vocabulario. Greedy decoding elige la palabra con probabilidad maxima y la
+            fija como entrada del paso siguiente. Es una decision local: no reconsidera
+            elecciones anteriores.
+          </div>
+
+          <h3>Visualizacion de una traduccion</h3>
+          <div class="timeline">
+            <div class="time-step">
+              <div class="mini-title">Paso 0</div>
+              <p>Entrada decoder: <code>&lt;sos&gt;</code><br>Predice: <code>donde</code></p>
+            </div>
+            <div class="time-step">
+              <div class="mini-title">Paso 1</div>
+              <p>Entrada decoder: <code>donde</code><br>Predice: <code>esta</code></p>
+            </div>
+            <div class="time-step">
+              <div class="mini-title">Paso 2</div>
+              <p>Entrada decoder: <code>esta</code><br>Predice: <code>el</code></p>
+            </div>
+            <div class="time-step">
+              <div class="mini-title">Paso 3</div>
+              <p>Entrada decoder: <code>el</code><br>Predice: <code>tren</code></p>
+            </div>
+          </div>
+          <div class="diagram-row">
+            <div class="diagram-label">Final</div>
+            <div class="sequence">
+              <span class="cell target">donde</span>
+              <span class="cell target">esta</span>
+              <span class="cell target">el</span>
+              <span class="cell target">tren</span>
+              <span class="cell special">&lt;eos&gt;</span>
+            </div>
+          </div>
+
+          <h3>Decision local con <code>argmax</code></h3>
+          <div class="prob-bars" aria-label="Probabilidades de palabras en greedy decoding">
+            <div class="bar"><span>donde</span><span class="bar-track"><span class="bar-fill" style="width: 71%;"></span></span><span>0.71</span></div>
+            <div class="bar"><span>cuando</span><span class="bar-track"><span class="bar-fill" style="width: 12%;"></span></span><span>0.12</span></div>
+            <div class="bar"><span>como</span><span class="bar-track"><span class="bar-fill" style="width: 9%;"></span></span><span>0.09</span></div>
+            <div class="bar"><span>tren</span><span class="bar-track"><span class="bar-fill" style="width: 8%;"></span></span><span>0.08</span></div>
+          </div>
+
+          <pre><code class="language-python">def translate_sentence(input_seq):
+    h, c = encoder_model.predict(input_seq, verbose=0)
+    target_seq = np.zeros((1, 1))
+    target_seq[0, 0] = word2idx_outputs['&lt;sos&gt;']
+    eos = word2idx_outputs['&lt;eos&gt;']
+
+    output_sentence = []
+    for _ in range(max_out_len):
+        output_tokens, h, c = decoder_model.predict([target_seq, h, c], verbose=0)
+        idx = np.argmax(output_tokens[0, 0, :])
+        if idx == eos:
+            break
+        if idx &gt; 0:
+            output_sentence.append(idx2word_target[idx])
+        target_seq[0, 0] = idx
+
+    return ' '.join(output_sentence)</code></pre>
+
+          <div class="note warning">
+            <strong>Greedy decoding</strong> siempre elige el token mas probable en cada
+            paso. Es simple y rapido, pero puede perder traducciones mejores que requieren
+            mirar varias alternativas. Una mejora habitual es beam search.
+          </div>
+        </section>
+
+        <section class="section" id="comparacion">
+          <h2>4. Comparacion entre los dos notebooks</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Aspecto</th>
+                <th>Encoder_Decoder.ipynb</th>
+                <th>Traductor.ipynb</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Tipo de entrada</td>
+                <td>Secuencias numericas de longitud 3</td>
+                <td>Frases en ingles de longitud maxima 20</td>
+              </tr>
+              <tr>
+                <td>Tipo de salida</td>
+                <td>Secuencias numericas de longitud 3</td>
+                <td>Frases en español de longitud maxima 22</td>
+              </tr>
+              <tr>
+                <td>Representacion de entrada</td>
+                <td>One-hot directo</td>
+                <td>Indices + capa Embedding</td>
+              </tr>
+              <tr>
+                <td>Token de inicio</td>
+                <td><code>&lt;sos&gt;</code> como indice 0</td>
+                <td><code>&lt;sos&gt;</code> en el vocabulario español</td>
+              </tr>
+              <tr>
+                <td>Token de fin</td>
+                <td>No hace falta, la longitud es fija</td>
+                <td><code>&lt;eos&gt;</code> indica cuando parar</td>
+              </tr>
+              <tr>
+                <td>Inferencia</td>
+                <td>3 pasos fijos</td>
+                <td>Hasta <code>&lt;eos&gt;</code> o <code>max_out_len</code></td>
+              </tr>
+              <tr>
+                <td>Objetivo didactico</td>
+                <td>Entender la mecanica Seq2Seq</td>
+                <td>Aplicar Seq2Seq a NLP real</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="section" id="errores">
+          <h2>5. Errores frecuentes y como leerlos</h2>
+          <div class="grid-2">
+            <div class="step">
+              <h3>Vocabulario incompleto</h3>
+              <p>
+                Si aparecen tokens fuera del vocabulario, el modelo no puede
+                representarlos correctamente. En el notebook numerico se evita incluyendo
+                entrada y salida en <code>all_values</code>.
+              </p>
+            </div>
+            <div class="step">
+              <h3>Confundir decoder input y target</h3>
+              <p>
+                El decoder input empieza con <code>&lt;sos&gt;</code>. El target termina
+                con el token que se quiere predecir. No son la misma secuencia.
+              </p>
+            </div>
+            <div class="step">
+              <h3>Olvidar reutilizar capas</h3>
+              <p>
+                Los modelos de inferencia deben usar las mismas capas entrenadas. Si se
+                crean capas nuevas, se pierden los pesos aprendidos.
+              </p>
+            </div>
+            <div class="step">
+              <h3>Interpretar mal accuracy</h3>
+              <p>
+                En traduccion, la accuracy token a token puede verse aceptable aunque la
+                frase completa no sea buena. Conviene mirar ejemplos traducidos.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="checklist">
+          <h2>6. Checklist de estudio</h2>
+          <p>
+            Antes de cerrar la clase, deberias poder explicar estos puntos sin mirar el
+            notebook:
+          </p>
+
+          <div class="checkpoint">
+            <div class="check"><span class="box"></span><span>Que son <code>state_h</code> y <code>state_c</code> en una LSTM.</span></div>
+            <div class="check"><span class="box"></span><span>Por que el decoder recibe <code>&lt;sos&gt;</code> al primer paso.</span></div>
+            <div class="check"><span class="box"></span><span>Como se construye <code>decoder_input</code> a partir del target.</span></div>
+            <div class="check"><span class="box"></span><span>Por que entrenamiento e inferencia usan modelos con formas distintas.</span></div>
+            <div class="check"><span class="box"></span><span>Por que el traductor necesita <code>&lt;eos&gt;</code> y el ejemplo numerico no.</span></div>
+            <div class="check"><span class="box"></span><span>Que diferencia hay entre one-hot directo y una capa <code>Embedding</code>.</span></div>
+          </div>
+
+          <details>
+            <summary>Mini ejercicio recomendado</summary>
+            <p>
+              Modifica el primer notebook para que la entrada tenga longitud 4:
+              <code>[x, x+5, x+10, x+15]</code> y la salida sea
+              <code>[x+20, x+25, x+30, x+35]</code>. Luego identifica que cambia en las
+              formas de <code>X1</code>, <code>X2</code> y <code>target</code>.
+            </p>
+          </details>
+        </section>
+
+        <footer class="footer">
+          <p>
+            Archivo creado como guia de estudio para Clase 6. Fuentes de contenido:
+            <code>Clase 6/Código/Encoder_Decoder.ipynb</code> y
+            <code>Clase 6/Código/Traductor.ipynb</code>.
+          </p>
+        </footer>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
